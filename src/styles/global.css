@@ -436,6 +436,17 @@ button,
   --game-ink: #7e461e;
 }
 
+body.brand-code-names {
+  --brand-header-top: #1a3a5c;
+  --brand-header-bottom: #122a45;
+  --brand-header-border: #0f2238;
+  --brand-footer-top: #1a3a5c;
+  --brand-footer-bottom: #122a45;
+  --brand-footer-link: #b9d9f0;
+  --brand-footer-link-hover: #d8efff;
+  --brand-footer-copy: #ffe59a;
+}
+
 .theme-bible-wordle {
   --game-accent: #4f8a3c;
   --game-ink: #314a20;
@@ -1228,6 +1239,11 @@ button:disabled {
     break-inside: avoid;
     page-break-inside: avoid;
   }
+}
+
+.game-btn[data-game="code-names"] {
+  background: #1a3a5c;
+  border-color: #1a3a5c;
 }
 
 .game-btn[data-game="coloring-pages"] {

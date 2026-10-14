@@ -24,7 +24,9 @@ const brandThemeClass = pathname.includes("/games/coloring-pages")
         ? "brand-bible-wordle"
         : pathname.includes("/games/word-search/")
           ? "brand-word-search"
-          : "brand-default";
+          : pathname.includes("/games/code-names")
+            ? "brand-code-names"
+            : "brand-default";
 ---
 
 <!doctype html>

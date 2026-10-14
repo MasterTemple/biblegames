@@ -1,0 +1,1222 @@
+---
+// src/pages/games/code-names.astro
+import Main from "@/layouts/Main.astro";
+import GameNav from "@/components/GameNav.astro";
+import { ALL_CATEGORIES, ALL_DIFFICULTIES } from "@/data/codeNames";
+---
+
+<Main title="Bible Code Names – BibleGames.Church">
+  <GameNav />
+
+  <div class="cn-shell game-theme theme-code-names" id="cn-root">
+    <!-- ── Setup Screen ──────────────────────────────────────────────── -->
+    <div id="cn-setup" class="cn-setup panel">
+      <h1 class="title cn-h1">Bible Code Names</h1>
+      <p class="subtitle" style="margin-bottom:1.25rem">
+        A team word-association game with Biblical content. Two teams race to
+        identify their words — but avoid the Assassin!
+      </p>
+
+      <!-- Category selector -->
+      <div class="cn-section-label">Word Categories</div>
+      <div class="cn-cat-grid" id="cn-cat-grid">
+        {ALL_CATEGORIES.map((cat) => (
+          <label class="cn-chip-label">
+            <input type="checkbox" class="cn-cat-check" value={cat} checked />
+            <span class="cn-chip">{cat}</span>
+          </label>
+        ))}
+      </div>
+      <button type="button" class="cn-chip-toggle" id="cn-cat-all">Deselect All</button>
+
+      <!-- Difficulty selector -->
+      <div class="cn-section-label" style="margin-top:1.1rem">Difficulty</div>
+      <div class="cn-cat-grid">
+        {ALL_DIFFICULTIES.map((d) => (
+          <label class="cn-chip-label">
+            <input type="checkbox" class="cn-diff-check" value={d} checked />
+            <span class="cn-chip cn-chip-diff">{d}</span>
+          </label>
+        ))}
+      </div>
+
+      <div class="cn-setup-actions">
+        <button type="button" class="btn cn-start-btn" id="cn-start">Start New Game</button>
+        <button type="button" class="btn alt" id="cn-rules-btn">📖 How to Play</button>
+      </div>
+
+      <p class="cn-hint" id="cn-word-count-hint"></p>
+    </div>
+
+    <!-- ── Game Board ─────────────────────────────────────────────────── -->
+    <div id="cn-game" hidden>
+      <!-- Top bar -->
+      <div class="cn-topbar">
+        <div class="cn-scoreboard">
+          <div class="cn-score-box cn-score-red" id="cn-score-red">
+            <span class="cn-score-num" id="cn-rem-red">–</span>
+            <span class="cn-score-label">Red</span>
+          </div>
+          <div class="cn-turn-indicator" id="cn-turn-indicator" aria-live="polite">
+            <span id="cn-turn-text">Red's Turn</span>
+          </div>
+          <div class="cn-score-box cn-score-blue" id="cn-score-blue">
+            <span class="cn-score-num" id="cn-rem-blue">–</span>
+            <span class="cn-score-label">Blue</span>
+          </div>
+        </div>
+
+        <div class="cn-topbar-actions">
+          <button type="button" class="cn-icon-btn" id="cn-spy-toggle" title="Toggle Spymaster View" aria-pressed="false">🔍</button>
+          <button type="button" class="cn-icon-btn" id="cn-qr-btn" title="Spymaster QR Code">📱</button>
+          <button type="button" class="cn-icon-btn" id="cn-fullscreen-btn" title="Full Screen">⛶</button>
+          <button type="button" class="cn-icon-btn" id="cn-rules-btn-2" title="Rules">📖</button>
+          <button type="button" class="cn-icon-btn danger" id="cn-new-btn" title="New Game">↺</button>
+        </div>
+      </div>
+
+      <!-- Spymaster banner -->
+      <div class="cn-spy-banner" id="cn-spy-banner" hidden>
+        🔍 Spymaster View — Key revealed. Don't let the guessers see this screen!
+      </div>
+
+      <!-- Clue tracker -->
+      <form class="cn-clue-bar" id="cn-clue-form" autocomplete="off">
+        <div class="cn-clue-inputs" id="cn-clue-inputs">
+          <input type="text" id="cn-clue-word" placeholder="Spymaster's clue (optional)" maxlength="30" aria-label="Clue word" />
+          <select id="cn-clue-num" aria-label="Number of words">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <option value={n}>{n}</option>)}
+            <option value="0">0</option>
+            <option value="inf">∞</option>
+          </select>
+          <button type="submit" class="btn cn-clue-btn">Set Clue</button>
+        </div>
+        <div class="cn-clue-status" id="cn-clue-status" hidden></div>
+      </form>
+
+      <!-- Board -->
+      <div class="cn-board" id="cn-board"></div>
+
+      <!-- Bottom controls -->
+      <div class="cn-bottom-bar">
+        <button type="button" class="btn alt cn-end-turn-btn" id="cn-end-turn">End Turn →</button>
+        <button type="button" class="btn cn-share-btn" id="cn-copy-spy-link">🔗 Copy Spymaster Link</button>
+      </div>
+      <p class="cn-hint" id="cn-game-code"></p>
+    </div>
+
+    <!-- ── Winner Overlay ─────────────────────────────────────────────── -->
+    <div class="cn-winner-overlay" id="cn-winner-overlay" hidden>
+      <div class="cn-winner-box">
+        <div class="cn-winner-emoji" id="cn-winner-emoji">🎉</div>
+        <h2 class="cn-winner-heading" id="cn-winner-heading">Red Wins!</h2>
+        <p id="cn-winner-msg"></p>
+        <button type="button" class="btn" id="cn-play-again">Play Again</button>
+        <button type="button" class="btn alt" id="cn-view-board">View Board</button>
+        <button type="button" class="btn alt" id="cn-back-to-setup">Change Categories</button>
+      </div>
+    </div>
+
+    <!-- ── Rules Modal ──────────────────────────────────────────────────── -->
+    <div class="cn-modal-backdrop" id="cn-rules-modal" hidden role="dialog" aria-modal="true" aria-labelledby="cn-rules-title">
+      <div class="cn-modal">
+        <button type="button" class="cn-modal-close" id="cn-rules-close" aria-label="Close">✕</button>
+        <h2 id="cn-rules-title" class="cn-modal-title">How to Play Bible Code Names</h2>
+        <div class="cn-rules-body">
+          <h3>Setup</h3>
+          <p>25 words are displayed in a 5×5 grid. Split into two teams — <strong class="red-text">Red</strong> and <strong class="blue-text">Blue</strong> — and each team picks a <strong>Spymaster</strong>. One team has 9 words (they go first), the other has 8. One word is the deadly <strong>Assassin</strong>. The rest are neutral bystanders.</p>
+
+          <h3>Each Turn</h3>
+          <ol>
+            <li><strong>Spymaster gives a clue:</strong> One word + a number. Example: <em>"Prophet: 3"</em> — meaning three of their team's words relate to prophets. Clues can't be a word on the board.</li>
+            <li><strong>Team guesses:</strong> Teammates discuss and tap cards. They may guess up to the number + 1 times, and may stop early with <em>End Turn</em>.</li>
+            <li>A <strong>correct guess</strong> keeps the turn going. A <strong>neutral</strong> or <strong>opponent's</strong> card ends the turn. The <strong>Assassin</strong> ends the game immediately.</li>
+          </ol>
+
+          <h3>Winning</h3>
+          <p>The first team to reveal all their words wins. Revealing the <strong>Assassin</strong> is an instant loss for that team.</p>
+
+          <h3>Spymaster View</h3>
+          <p>Spymasters should open the key on their own phone: tap 📱 and scan the QR code, or copy the Spymaster link. Tap the cards on the spymaster phone as they're revealed to keep track. On a single shared screen, 🔍 toggles the key — make sure guessers look away!</p>
+
+          <h3>Clue Tracker (optional)</h3>
+          <p>Type the clue and number into the clue bar to show it on the board and count down the remaining guesses. The turn ends automatically when guesses run out.</p>
+        </div>
+        <button type="button" class="btn" id="cn-rules-ok">Got it!</button>
+      </div>
+    </div>
+
+    <!-- ── QR Modal ─────────────────────────────────────────────────────── -->
+    <div class="cn-modal-backdrop" id="cn-qr-modal" hidden role="dialog" aria-modal="true" aria-labelledby="cn-qr-title">
+      <div class="cn-modal cn-qr-modal">
+        <button type="button" class="cn-modal-close" id="cn-qr-close" aria-label="Close">✕</button>
+        <h2 id="cn-qr-title" class="cn-modal-title">Spymaster QR Code</h2>
+        <p>Spymasters: scan this code to open the key on your own phone.</p>
+        <div id="cn-qr-canvas-wrap" class="cn-qr-wrap"></div>
+        <p class="cn-hint">The link opens this exact board in Spymaster mode — no account or server needed.</p>
+      </div>
+    </div>
+  </div>
+</Main>
+
+<style is:global>
+/* ─────────────────────────────────────────────────────────────────────────
+   Code Names – page styles (global: board cards are created by JS, and
+   rules are prefixed to win over `.game-theme button`)
+   ───────────────────────────────────────────────────────────────────────── */
+
+.theme-code-names {
+  --game-accent: #1a5fa8;
+  --game-ink: #122a45;
+  --cn-red: #c0392b;
+  --cn-red-light: #f7d5d3;
+  --cn-red-border: #e74c3c;
+  --cn-blue: #1a5fa8;
+  --cn-blue-light: #d3e5f7;
+  --cn-blue-border: #2980b9;
+  --cn-neutral: #e8e2d4;
+  --cn-neutral-dark: #a89f8e;
+  --cn-assassin: #1c1c1c;
+  --cn-assassin-text: #f5f5f5;
+}
+
+.cn-shell {
+  width: min(1080px, 97vw);
+  margin: 1.2rem auto 2.5rem;
+}
+
+/* ── Fullscreen mode ── */
+.cn-shell.cn-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  z-index: 100;
+  background: radial-gradient(circle at 20% 10%, #edf5db 0%, #f6f7eb 45%, #f0ead6 100%);
+  height: 100dvh;
+  overflow: hidden;
+  border-radius: 0;
+  padding: 0.75rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fill the viewport: board takes whatever height is left, no scrolling */
+.cn-shell.cn-fullscreen #cn-game {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cn-shell.cn-fullscreen .cn-board {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  margin-bottom: 0.6rem;
+}
+
+.cn-shell.cn-fullscreen .cn-board .cn-card {
+  aspect-ratio: auto;
+  height: 100%;
+  min-height: 0;
+  font-size: clamp(0.75rem, min(2vw, 3.4vh), 1.9rem);
+}
+
+.cn-shell.cn-fullscreen .cn-hint:empty {
+  display: none;
+}
+
+/* ── Setup screen ── */
+.cn-setup {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.cn-h1 {
+  margin: 0 0 0.2rem;
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  color: var(--game-ink);
+}
+
+.cn-section-label {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--game-ink);
+  margin-bottom: 0.55rem;
+  margin-top: 0.2rem;
+}
+
+.cn-cat-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+}
+
+.cn-chip-label {
+  display: inline-flex;
+}
+
+.cn-chip-label input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cn-shell .cn-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  user-select: none;
+}
+
+.cn-shell .cn-chip-label input:checked + .cn-chip {
+  background: var(--game-accent);
+  border-color: var(--game-accent);
+  color: #fff;
+}
+
+.cn-shell .cn-chip-label input:focus-visible + .cn-chip {
+  outline: 3px solid var(--cn-blue-border);
+  outline-offset: 2px;
+}
+
+.cn-chip-diff {
+  text-transform: capitalize;
+}
+
+.cn-setup .cn-chip-toggle {
+  background: none;
+  border: none;
+  color: var(--game-accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  width: auto;
+  text-decoration: underline;
+}
+
+.cn-setup-actions {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+}
+
+.cn-setup-actions .btn {
+  flex: 1;
+  min-width: 140px;
+}
+
+.cn-start-btn {
+  font-size: 1.05rem;
+}
+
+.cn-hint {
+  font-size: 0.82rem;
+  color: #5a6a5e;
+  margin: 0.5rem 0 0;
+  min-height: 1.2em;
+}
+
+.cn-hint.is-error { color: #c0392b; }
+.cn-hint.is-ok { color: #3f7d58; }
+
+/* ── Top bar ── */
+.cn-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.cn-scoreboard {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+}
+
+.cn-score-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.35rem 0.8rem;
+  border-radius: 10px;
+  font-weight: 800;
+  min-width: 56px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.cn-score-box.active-team {
+  transform: scale(1.08);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.2);
+}
+
+.cn-score-red {
+  background: var(--cn-red-light);
+  border: 2px solid var(--cn-red-border);
+  color: var(--cn-red);
+}
+
+.cn-score-blue {
+  background: var(--cn-blue-light);
+  border: 2px solid var(--cn-blue-border);
+  color: var(--cn-blue);
+}
+
+.cn-score-num {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.cn-score-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cn-turn-indicator {
+  flex: 1;
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--game-ink);
+  transition: color 0.3s;
+}
+
+.cn-shell[data-turn="red"] .cn-turn-indicator { color: var(--cn-red); }
+.cn-shell[data-turn="blue"] .cn-turn-indicator { color: var(--cn-blue); }
+
+.cn-topbar-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.cn-topbar .cn-icon-btn {
+  width: auto;
+  padding: 0.4rem 0.55rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cn-topbar .cn-icon-btn.danger {
+  color: var(--cn-red);
+}
+
+.cn-topbar .cn-icon-btn:hover,
+.cn-topbar .cn-icon-btn[aria-pressed="true"] {
+  background: var(--cn-neutral);
+}
+
+/* ── Spy banner ── */
+.cn-spy-banner {
+  background: #2d1a00;
+  color: #ffe59a;
+  text-align: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+  padding: 0.4rem;
+  border-radius: 8px;
+  margin-bottom: 0.6rem;
+}
+
+/* ── Clue bar ── */
+.cn-clue-bar {
+  margin-bottom: 0.7rem;
+}
+
+.cn-clue-inputs {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.cn-clue-inputs[hidden] { display: none; }
+
+.cn-clue-inputs input,
+.cn-clue-inputs select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+}
+
+.cn-clue-inputs input { flex: 1; min-width: 0; }
+.cn-clue-inputs select { width: auto; }
+
+.cn-clue-bar .cn-clue-btn {
+  width: auto;
+  padding: 0.45rem 0.9rem;
+}
+
+.cn-shell[data-turn="red"] .cn-clue-bar .cn-clue-btn {
+  background: var(--cn-red);
+  border-color: var(--cn-red);
+}
+
+.cn-clue-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-weight: 800;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  background: var(--cn-blue-light);
+  color: var(--cn-blue);
+  border: 2px solid var(--cn-blue-border);
+}
+
+.cn-shell[data-turn="red"] .cn-clue-status {
+  background: var(--cn-red-light);
+  color: var(--cn-red);
+  border-color: var(--cn-red-border);
+}
+
+.cn-clue-status[hidden] { display: none; }
+
+.cn-clue-word {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cn-clue-status .cn-clue-clear {
+  width: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── Board ── */
+.cn-board {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: clamp(0.3rem, 1vw, 0.7rem);
+  margin-bottom: 0.9rem;
+  padding: clamp(0.3rem, 1vw, 0.6rem);
+  border-radius: 14px;
+  border: 3px solid transparent;
+  transition: border-color 0.3s;
+}
+
+.cn-shell[data-turn="red"] .cn-board { border-color: var(--cn-red-border); }
+.cn-shell[data-turn="blue"] .cn-board { border-color: var(--cn-blue-border); }
+
+.cn-board .cn-card {
+  aspect-ratio: 5/3;
+  width: 100%;
+  border-radius: 10px;
+  border: 2.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 800;
+  font-size: clamp(0.6rem, 1.6vw, 1.05rem);
+  line-height: 1.2;
+  cursor: pointer;
+  padding: 0.3rem;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 2px 0 var(--line);
+  transition: transform 0.12s, box-shadow 0.12s, background 0.25s, color 0.25s, border-color 0.25s;
+  user-select: none;
+  position: relative;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.cn-board .cn-card:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.13);
+}
+
+/* Spymaster view – unrevealed */
+.cn-board .cn-card-spy-red      { background: var(--cn-red-light);  border-color: var(--cn-red-border);  color: var(--cn-red); }
+.cn-board .cn-card-spy-blue     { background: var(--cn-blue-light); border-color: var(--cn-blue-border); color: var(--cn-blue); }
+.cn-board .cn-card-spy-neutral  { background: var(--cn-neutral); border-color: var(--cn-neutral-dark); color: #6b5e4a; }
+.cn-board .cn-card-spy-assassin { background: var(--cn-assassin); border-color: #000; color: var(--cn-assassin-text); }
+.cn-board .cn-card-spy-assassin::before { content: "💀 "; }
+
+/* Revealed states */
+.cn-board .cn-card-revealed {
+  cursor: default;
+  animation: cn-flip 0.35s ease;
+}
+
+.cn-board .cn-card-revealed.type-red      { background: var(--cn-red);  border-color: var(--cn-red);  color: #fff; }
+.cn-board .cn-card-revealed.type-blue     { background: var(--cn-blue); border-color: var(--cn-blue); color: #fff; }
+.cn-board .cn-card-revealed.type-neutral  { background: var(--cn-neutral-dark); border-color: var(--cn-neutral-dark); color: #fff; }
+.cn-board .cn-card-revealed.type-assassin { background: #1c1c1c; border-color: #000; color: #fff; }
+.cn-board .cn-card-revealed.type-assassin::before { content: "💀 "; }
+
+/* With the key showing, dim revealed cards so the spymaster sees what's left */
+.cn-board.cn-board-key .cn-card-revealed {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.cn-board .cn-card.cn-card-skip-anim { animation: none; }
+
+@keyframes cn-flip {
+  0%   { transform: rotateX(0); }
+  50%  { transform: rotateX(90deg); }
+  100% { transform: rotateX(0); }
+}
+
+/* ── Bottom bar ── */
+.cn-bottom-bar {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+
+.cn-bottom-bar .btn {
+  flex: 1;
+  min-width: 130px;
+}
+
+/* ── Winner overlay ── */
+.cn-winner-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.cn-winner-overlay[hidden] { display: none; }
+
+.cn-winner-box {
+  background: var(--panel);
+  border-radius: 18px;
+  padding: 2rem 2.2rem;
+  text-align: center;
+  max-width: 400px;
+  width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  animation: cn-pop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+@keyframes cn-pop {
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.cn-winner-emoji { font-size: 3.5rem; margin-bottom: 0.25rem; }
+
+.cn-winner-heading {
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.cn-winner-box p { margin: 0 0 1.2rem; color: #4a5a4e; }
+
+.cn-winner-box .btn { margin-top: 0.5rem; width: 100%; }
+
+/* ── Modals ── */
+.cn-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+
+.cn-modal-backdrop[hidden] { display: none; }
+
+.cn-modal {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 1.75rem 1.8rem 1.5rem;
+  max-width: 560px;
+  width: 93vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+  animation: cn-pop 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  box-sizing: border-box;
+}
+
+.cn-modal .cn-modal-close {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  width: auto;
+  padding: 0.2rem 0.45rem;
+  color: #666;
+}
+
+.cn-modal-title {
+  margin: 0 0 1rem;
+  padding-right: 2rem;
+  font-size: 1.3rem;
+  color: var(--game-ink);
+}
+
+.cn-rules-body h3 {
+  margin: 1rem 0 0.3rem;
+  font-size: 1rem;
+  color: var(--game-ink);
+}
+
+.cn-rules-body p, .cn-rules-body ol {
+  margin: 0;
+  line-height: 1.55;
+  color: #2d3a30;
+}
+
+.cn-rules-body ol { padding-left: 1.25rem; }
+.cn-rules-body ol li { margin-bottom: 0.35rem; }
+
+.cn-shell .red-text { color: var(--cn-red); }
+.cn-shell .blue-text { color: var(--cn-blue); }
+
+.cn-modal .btn { margin-top: 1.2rem; width: 100%; }
+
+/* ── QR modal ── */
+.cn-qr-modal { text-align: center; }
+.cn-qr-wrap { display: flex; justify-content: center; margin: 1rem 0 0.5rem; min-height: 220px; }
+.cn-qr-wrap img { border-radius: 8px; }
+
+/* ── Responsive ── */
+@media (max-width: 520px) {
+  .cn-board {
+    gap: 0.25rem;
+    padding: 0.2rem;
+  }
+
+  .cn-board .cn-card {
+    font-size: 0.56rem;
+    padding: 0.15rem;
+    border-radius: 6px;
+    border-width: 2px;
+    aspect-ratio: 4/3;
+  }
+
+  .cn-scoreboard {
+    gap: 0.35rem;
+  }
+
+  .cn-score-num { font-size: 1.1rem; }
+  .cn-score-label { font-size: 0.62rem; }
+  .cn-turn-indicator { font-size: 0.82rem; }
+
+  .cn-topbar-actions { gap: 0.25rem; }
+  .cn-topbar .cn-icon-btn { padding: 0.3rem 0.4rem; font-size: 0.88rem; }
+}
+</style>
+
+<script>
+import { WORD_DATA, ALL_CATEGORIES, ALL_DIFFICULTIES } from "@/data/codeNames";
+import {
+  buildBoard,
+  revealCard,
+  endTurn,
+  replayLog,
+  randomSeed,
+  toMask,
+  fromMask,
+  uniqueWords,
+  END_TURN,
+} from "@/lib/games/codeNames";
+import type { GameState, Team } from "@/lib/games/codeNames";
+
+// QR codes come from the free QR Server API (returns an image – zero deps)
+function qrImgUrl(text: string, size = 220): string {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
+}
+
+// ─── State ──────────────────────────────────────────────────────────────────
+/** Game code = "<seed>.<categoryMask>.<difficultyMask>" – fully rebuilds a board */
+let gameCode = "";
+let gameState: GameState | null = null;
+/** Action log (card indices / END_TURN) – persisted so a refresh keeps progress */
+let actionLog: number[] = [];
+/** True when this device was opened from a spymaster link */
+let isSpyDevice = false;
+/** Optional clue tracker: guesses left this turn (Infinity = unlimited) */
+let clue: { word: string; label: string; guessesLeft: number } | null = null;
+let lastRevealed = -1;
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+function qs<T extends Element>(sel: string, root: ParentNode = document): T {
+  return root.querySelector(sel) as T;
+}
+
+const checkedValues = (sel: string) =>
+  [...document.querySelectorAll<HTMLInputElement>(`${sel}:checked`)].map(el => el.value);
+
+function filteredWords(cats: string[], diffs: string[]): string[] {
+  return uniqueWords(
+    WORD_DATA
+      .filter(w => w.categories.some(c => cats.includes(c)) && diffs.includes(w.difficulty))
+      .map(w => w.word)
+  );
+}
+
+function setHint(el: HTMLElement, text: string, kind: "" | "error" | "ok" = "") {
+  el.textContent = text;
+  el.classList.toggle("is-error", kind === "error");
+  el.classList.toggle("is-ok", kind === "ok");
+}
+
+// ─── Game code / URL ─────────────────────────────────────────────────────────
+function makeCode(seed: string, cats: string[], diffs: string[]): string {
+  return `${seed}.${toMask(ALL_CATEGORIES, cats)}.${toMask(ALL_DIFFICULTIES, diffs)}`;
+}
+
+function parseCode(code: string) {
+  const [seed, catMask, diffMask] = code.split(".");
+  if (!seed || !catMask || !diffMask) return null;
+  return {
+    seed,
+    cats: fromMask(ALL_CATEGORIES, catMask),
+    diffs: fromMask(ALL_DIFFICULTIES, diffMask),
+  };
+}
+
+function boardUrl(code: string): string {
+  return `${window.location.origin}${window.location.pathname}#g=${code}`;
+}
+
+function spymasterUrl(code: string): string {
+  return `${window.location.origin}${window.location.pathname}#spy=${code}`;
+}
+
+// ─── Persistence (best-effort; the game works without it) ───────────────────
+const storageKey = () => `cn:${isSpyDevice ? "spy" : "game"}:${gameCode}`;
+
+function saveProgress() {
+  try {
+    localStorage.setItem(storageKey(), JSON.stringify(actionLog));
+  } catch {
+    // ignore
+  }
+}
+
+function loadProgress(): number[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(storageKey()) || "[]");
+    return Array.isArray(parsed) ? parsed.filter(n => Number.isInteger(n)) : [];
+  } catch {
+    return [];
+  }
+}
+
+// ─── Render ─────────────────────────────────────────────────────────────────
+function renderBoard() {
+  if (!gameState) return;
+  const board = qs<HTMLDivElement>("#cn-board");
+  const showKey = gameState.spymasterView || !!gameState.winner;
+  board.classList.toggle("cn-board-key", gameState.spymasterView);
+
+  board.innerHTML = "";
+  gameState.cards.forEach((card, i) => {
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = "cn-card";
+    el.textContent = card.word;
+
+    if (card.revealed) {
+      el.classList.add("cn-card-revealed", `type-${card.type}`);
+      if (i !== lastRevealed) el.classList.add("cn-card-skip-anim");
+      el.disabled = true;
+      el.setAttribute("aria-label", `${card.word} (${card.type})`);
+    } else if (showKey) {
+      el.classList.add(`cn-card-spy-${card.type}`);
+      el.setAttribute("aria-label", `${card.word} (${card.type})`);
+    }
+    if (gameState!.winner) el.disabled = true;
+
+    el.addEventListener("click", () => handleCardClick(i));
+    board.appendChild(el);
+  });
+  lastRevealed = -1;
+}
+
+function renderHud() {
+  if (!gameState) return;
+  const { remaining, currentTeam, winner, spymasterView } = gameState;
+
+  qs<HTMLSpanElement>("#cn-rem-red").textContent = String(remaining.red);
+  qs<HTMLSpanElement>("#cn-rem-blue").textContent = String(remaining.blue);
+
+  qs<HTMLSpanElement>("#cn-turn-text").textContent = winner
+    ? "Game Over"
+    : currentTeam === "red" ? "🔴 Red's Turn" : "🔵 Blue's Turn";
+
+  const root = qs<HTMLDivElement>("#cn-root");
+  if (winner) delete root.dataset.turn;
+  else root.dataset.turn = currentTeam;
+
+  qs<HTMLDivElement>("#cn-score-red").classList.toggle("active-team", currentTeam === "red" && !winner);
+  qs<HTMLDivElement>("#cn-score-blue").classList.toggle("active-team", currentTeam === "blue" && !winner);
+
+  qs<HTMLDivElement>("#cn-spy-banner").hidden = !spymasterView;
+  qs<HTMLButtonElement>("#cn-spy-toggle").setAttribute("aria-pressed", String(spymasterView));
+  qs<HTMLButtonElement>("#cn-end-turn").disabled = !!winner;
+
+  renderClue();
+}
+
+function renderClue() {
+  const form = qs<HTMLFormElement>("#cn-clue-form");
+  const inputs = qs<HTMLDivElement>("#cn-clue-inputs");
+  const status = qs<HTMLDivElement>("#cn-clue-status");
+
+  // The clue tracker is for the shared board, not the spymaster's phone
+  form.hidden = isSpyDevice || !!gameState?.winner;
+  inputs.hidden = !!clue;
+  status.hidden = !clue;
+  if (!clue) return;
+
+  const left = clue.guessesLeft === Infinity
+    ? "unlimited guesses"
+    : `${clue.guessesLeft} guess${clue.guessesLeft === 1 ? "" : "es"} left`;
+  status.innerHTML = "";
+  const word = document.createElement("span");
+  word.className = "cn-clue-word";
+  word.textContent = clue.word ? `${clue.word}: ${clue.label}` : `Clue: ${clue.label}`;
+  const count = document.createElement("span");
+  count.textContent = `· ${left}`;
+  const clear = document.createElement("button");
+  clear.type = "button";
+  clear.className = "cn-clue-clear";
+  clear.textContent = "clear";
+  clear.addEventListener("click", () => { clue = null; renderClue(); });
+  status.append(word, count, clear);
+}
+
+function showWinner() {
+  if (!gameState?.winner) return;
+  const { winner } = gameState;
+
+  const results: Record<string, [string, string, string]> = {
+    red: ["🔴", "Red Wins!", "Red team found all their words!"],
+    blue: ["🔵", "Blue Wins!", "Blue team found all their words!"],
+    assassin_red: ["💀", "Blue Wins!", "Red team found the Assassin — Blue wins!"],
+    assassin_blue: ["💀", "Red Wins!", "Blue team found the Assassin — Red wins!"],
+  };
+  const [emoji, heading, msg] = results[winner];
+
+  qs<HTMLDivElement>("#cn-winner-emoji").textContent = emoji;
+  qs<HTMLHeadingElement>("#cn-winner-heading").textContent = heading;
+  qs<HTMLParagraphElement>("#cn-winner-msg").textContent = msg;
+  qs<HTMLDivElement>("#cn-winner-overlay").hidden = false;
+}
+
+function render() {
+  renderBoard();
+  renderHud();
+}
+
+// ─── Actions ────────────────────────────────────────────────────────────────
+function handleCardClick(index: number) {
+  if (!gameState || gameState.winner || gameState.cards[index].revealed) return;
+  const prevTeam: Team = gameState.currentTeam;
+
+  gameState = revealCard(gameState, index);
+  actionLog.push(index);
+  lastRevealed = index;
+
+  if (gameState.currentTeam !== prevTeam) {
+    clue = null;
+  } else if (clue && !gameState.winner) {
+    clue.guessesLeft -= 1;
+    if (clue.guessesLeft <= 0) {
+      gameState = endTurn(gameState);
+      actionLog.push(END_TURN);
+      clue = null;
+    }
+  }
+
+  saveProgress();
+  render();
+
+  if (gameState.winner) setTimeout(showWinner, 600);
+}
+
+function handleEndTurn() {
+  if (!gameState || gameState.winner) return;
+  gameState = endTurn(gameState);
+  actionLog.push(END_TURN);
+  clue = null;
+  saveProgress();
+  renderHud();
+}
+
+function handleClueSubmit(e: Event) {
+  e.preventDefault();
+  if (!gameState || gameState.winner) return;
+  const word = qs<HTMLInputElement>("#cn-clue-word").value.trim();
+  const num = qs<HTMLSelectElement>("#cn-clue-num").value;
+  const guessesLeft = num === "inf" || num === "0" ? Infinity : Number(num) + 1;
+  clue = { word, label: num === "inf" ? "∞" : num, guessesLeft };
+  qs<HTMLInputElement>("#cn-clue-word").value = "";
+  renderClue();
+}
+
+/** Load a game from its code. Returns false if the code is invalid. */
+function loadGame(code: string, spy: boolean): boolean {
+  const parsed = parseCode(code);
+  const hint = qs<HTMLParagraphElement>("#cn-word-count-hint");
+  if (!parsed) return false;
+
+  const words = filteredWords(parsed.cats, parsed.diffs);
+  let state: GameState;
+  try {
+    state = buildBoard(words, parsed.seed);
+  } catch (err: unknown) {
+    setHint(hint, err instanceof Error ? err.message : "Failed to build board.", "error");
+    return false;
+  }
+
+  gameCode = code;
+  isSpyDevice = spy;
+  clue = null;
+  actionLog = loadProgress();
+  gameState = { ...replayLog(state, actionLog), spymasterView: spy };
+
+  // Mirror the game's filters on the setup screen
+  document.querySelectorAll<HTMLInputElement>(".cn-cat-check").forEach(el => {
+    el.checked = parsed.cats.includes(el.value);
+  });
+  document.querySelectorAll<HTMLInputElement>(".cn-diff-check").forEach(el => {
+    el.checked = parsed.diffs.includes(el.value);
+  });
+  syncCatToggleLabel();
+  updateWordCountHint();
+
+  history.replaceState(null, "", spy ? spymasterUrl(code) : boardUrl(code));
+
+  qs<HTMLDivElement>("#cn-setup").hidden = true;
+  qs<HTMLDivElement>("#cn-game").hidden = false;
+  qs<HTMLDivElement>("#cn-winner-overlay").hidden = true;
+  qs<HTMLButtonElement>("#cn-copy-spy-link").hidden = spy;
+  qs<HTMLButtonElement>("#cn-qr-btn").hidden = spy;
+  setHint(
+    qs<HTMLParagraphElement>("#cn-game-code"),
+    spy
+      ? "Spymaster phone: tap cards as they're revealed on the main board to keep track."
+      : `Game code: ${code}`
+  );
+
+  render();
+  if (gameState.winner) showWinner();
+  return true;
+}
+
+function startGame() {
+  const cats = checkedValues(".cn-cat-check");
+  const diffs = checkedValues(".cn-diff-check");
+  const count = filteredWords(cats, diffs).length;
+
+  if (count < 25) {
+    setHint(
+      qs<HTMLParagraphElement>("#cn-word-count-hint"),
+      `⚠ Only ${count} words match. Need at least 25 — select more categories or difficulties.`,
+      "error"
+    );
+    return;
+  }
+
+  // A fresh seed means a fresh board every time, even with the same filters
+  loadGame(makeCode(randomSeed(), cats, diffs), false);
+}
+
+function backToSetup() {
+  gameState = null;
+  gameCode = "";
+  isSpyDevice = false;
+  clue = null;
+  exitFullscreen();
+  delete qs<HTMLDivElement>("#cn-root").dataset.turn;
+  qs<HTMLDivElement>("#cn-setup").hidden = false;
+  qs<HTMLDivElement>("#cn-game").hidden = true;
+  qs<HTMLDivElement>("#cn-winner-overlay").hidden = true;
+  history.replaceState(null, "", window.location.pathname);
+}
+
+function toggleSpymaster() {
+  if (!gameState) return;
+  const turningOn = !gameState.spymasterView;
+  if (turningOn && !isSpyDevice && !gameState.winner &&
+      !confirm("Show the key on this screen? Only Spymasters should look!")) {
+    return;
+  }
+  gameState = { ...gameState, spymasterView: turningOn };
+  render();
+}
+
+// ─── Modals ─────────────────────────────────────────────────────────────────
+function openModal(id: string) {
+  qs<HTMLDivElement>(`#${id}`).hidden = false;
+}
+
+function closeModal(id: string) {
+  qs<HTMLDivElement>(`#${id}`).hidden = true;
+}
+
+function openQR() {
+  const wrap = qs<HTMLDivElement>("#cn-qr-canvas-wrap");
+  const img = document.createElement("img");
+  img.src = qrImgUrl(spymasterUrl(gameCode), 220);
+  img.width = 220;
+  img.height = 220;
+  img.alt = "Spymaster link QR code";
+  wrap.replaceChildren(img);
+  openModal("cn-qr-modal");
+}
+
+// ─── Copy link ───────────────────────────────────────────────────────────────
+async function copySpyLink() {
+  const url = spymasterUrl(gameCode);
+  const btn = qs<HTMLButtonElement>("#cn-copy-spy-link");
+  try {
+    await navigator.clipboard.writeText(url);
+    const orig = btn.textContent;
+    btn.textContent = "✓ Copied!";
+    setTimeout(() => { btn.textContent = orig; }, 1800);
+  } catch {
+    prompt("Copy this Spymaster link:", url);
+  }
+}
+
+// ─── Fullscreen ──────────────────────────────────────────────────────────────
+function setFullscreen(on: boolean) {
+  qs<HTMLDivElement>("#cn-root").classList.toggle("cn-fullscreen", on);
+  qs<HTMLButtonElement>("#cn-fullscreen-btn").textContent = on ? "✕ Exit" : "⛶";
+  if (on) qs<HTMLDivElement>("#cn-root").scrollTop = 0;
+}
+
+function exitFullscreen() {
+  setFullscreen(false);
+}
+
+function toggleFullscreen() {
+  setFullscreen(!qs<HTMLDivElement>("#cn-root").classList.contains("cn-fullscreen"));
+}
+
+// ─── Word count hint (live) ───────────────────────────────────────────────────
+function updateWordCountHint() {
+  const count = filteredWords(checkedValues(".cn-cat-check"), checkedValues(".cn-diff-check")).length;
+  const hint = qs<HTMLParagraphElement>("#cn-word-count-hint");
+  if (count < 25) setHint(hint, `⚠ ${count} words match — need at least 25`, "error");
+  else setHint(hint, `${count} words available`, "ok");
+}
+
+// ─── Category all/none toggle ─────────────────────────────────────────────────
+function syncCatToggleLabel() {
+  const checks = [...document.querySelectorAll<HTMLInputElement>(".cn-cat-check")];
+  qs<HTMLButtonElement>("#cn-cat-all").textContent = checks.every(c => c.checked) ? "Deselect All" : "Select All";
+}
+
+function setupCatToggle() {
+  qs<HTMLButtonElement>("#cn-cat-all").addEventListener("click", () => {
+    const checks = [...document.querySelectorAll<HTMLInputElement>(".cn-cat-check")];
+    const allChecked = checks.every(c => c.checked);
+    checks.forEach(c => { c.checked = !allChecked; });
+    syncCatToggleLabel();
+    updateWordCountHint();
+  });
+}
+
+// ─── Restore from URL hash (#g=CODE board, #spy=CODE spymaster) ─────────────
+function restoreFromUrl() {
+  const match = window.location.hash.match(/^#(g|spy)=([\w.]+)$/);
+  if (!match) return;
+  if (!loadGame(match[2], match[1] === "spy")) {
+    setHint(qs<HTMLParagraphElement>("#cn-word-count-hint"), "That game link is invalid — start a new game.", "error");
+    history.replaceState(null, "", window.location.pathname);
+  }
+}
+
+// ─── Wire everything up ──────────────────────────────────────────────────────
+qs<HTMLButtonElement>("#cn-start").addEventListener("click", startGame);
+qs<HTMLButtonElement>("#cn-rules-btn").addEventListener("click", () => openModal("cn-rules-modal"));
+qs<HTMLButtonElement>("#cn-rules-btn-2").addEventListener("click", () => openModal("cn-rules-modal"));
+qs<HTMLButtonElement>("#cn-rules-close").addEventListener("click", () => closeModal("cn-rules-modal"));
+qs<HTMLButtonElement>("#cn-rules-ok").addEventListener("click", () => closeModal("cn-rules-modal"));
+
+qs<HTMLButtonElement>("#cn-spy-toggle").addEventListener("click", toggleSpymaster);
+qs<HTMLButtonElement>("#cn-qr-btn").addEventListener("click", openQR);
+qs<HTMLButtonElement>("#cn-qr-close").addEventListener("click", () => closeModal("cn-qr-modal"));
+qs<HTMLButtonElement>("#cn-fullscreen-btn").addEventListener("click", toggleFullscreen);
+qs<HTMLButtonElement>("#cn-new-btn").addEventListener("click", () => {
+  if (confirm("Start a new game with the same word categories?")) startGame();
+});
+qs<HTMLButtonElement>("#cn-end-turn").addEventListener("click", handleEndTurn);
+qs<HTMLFormElement>("#cn-clue-form").addEventListener("submit", handleClueSubmit);
+qs<HTMLButtonElement>("#cn-copy-spy-link").addEventListener("click", copySpyLink);
+qs<HTMLButtonElement>("#cn-play-again").addEventListener("click", startGame);
+qs<HTMLButtonElement>("#cn-view-board").addEventListener("click", () => {
+  qs<HTMLDivElement>("#cn-winner-overlay").hidden = true;
+});
+qs<HTMLButtonElement>("#cn-back-to-setup").addEventListener("click", backToSetup);
+
+// Close modals on backdrop click
+for (const id of ["cn-rules-modal", "cn-qr-modal"]) {
+  qs<HTMLDivElement>(`#${id}`).addEventListener("click", e => {
+    if (e.target === e.currentTarget) closeModal(id);
+  });
+}
+
+// Category / difficulty check → update hint
+document.querySelectorAll<HTMLInputElement>(".cn-cat-check, .cn-diff-check").forEach(el => {
+  el.addEventListener("change", () => {
+    syncCatToggleLabel();
+    updateWordCountHint();
+  });
+});
+
+// Escape closes modals, then exits fullscreen
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  const openModals = ["cn-rules-modal", "cn-qr-modal"].filter(id => !qs<HTMLDivElement>(`#${id}`).hidden);
+  if (openModals.length) openModals.forEach(closeModal);
+  else exitFullscreen();
+});
+
+setupCatToggle();
+updateWordCountHint();
+restoreFromUrl();
+</script>
