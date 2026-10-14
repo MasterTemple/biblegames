@@ -20,6 +20,7 @@ const SITEMAP_URLS = new Set([
   "https://biblegames.church/copyright/",
   "https://biblegames.church/printing-advice/",
   "https://biblegames.church/games/bible-wordle/",
+  "https://biblegames.church/games/code-names/",
   "https://biblegames.church/games/coloring-pages/",
   // One entry point per generated game — the same three the home page links to.
   "https://biblegames.church/games/cryptogram/medium/gen/1/",
