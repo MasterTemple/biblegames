@@ -69,7 +69,7 @@ const firstBook = books[0];
         <GameNav collapsedOnMobile={false} />
 
         <h2>Quick Start</h2>
-        <div class="button-row">
+        <div class="button-row quick-start-row">
           <a
             id="random-word-search-link"
             class="btn game-btn"
@@ -93,6 +93,9 @@ const firstBook = books[0];
             href={`/games/verse-unscramble/medium/${firstBook?.code ?? "gen"}/1`}
           >
             Random Verse Unscramble
+          </a>
+          <a class="btn game-btn" data-game="coloring-pages" href="/games/coloring-pages">
+            Browse Coloring Pages
           </a>
           <a class="btn game-btn" data-game="bible-wordle" href="/games/bible-wordle">
             Bible Verse Wordle Today

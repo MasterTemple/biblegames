@@ -497,8 +497,9 @@ body.brand-code-names {
   gap: 0.75rem;
 }
 
-.game-nav-panel .button-row {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+.game-nav-panel .button-row,
+.quick-start-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .game-nav-panel .btn {
@@ -524,7 +525,8 @@ body.brand-code-names {
     display: grid;
   }
 
-  .game-nav-panel .button-row {
+  .game-nav-panel .button-row,
+  .quick-start-row {
     grid-template-columns: 1fr;
   }
 
